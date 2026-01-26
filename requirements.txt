@@ -1,0 +1,8 @@
+python-jose[cryptography]
+passlib[bcrypt]
+requests
+fastapi
+uvicorn[standard]
+pandas
+openai
+python-dotenv

@@ -1,0 +1,22 @@
+{
+  "version": 1767595024,
+  "updated_at": 1767595024,
+  "template_name": "Template",
+  "overrides": {
+    "sections": [
+      {
+        "selector": {
+          "by": "index",
+          "value": "S1"
+        },
+        "fields": {
+          "start_row": 3,
+          "end_row": 53,
+          "header_row": 1,
+          "label": "Doanh thu các tuyến"
+        }
+      }
+    ],
+    "header_row": 1
+  }
+}

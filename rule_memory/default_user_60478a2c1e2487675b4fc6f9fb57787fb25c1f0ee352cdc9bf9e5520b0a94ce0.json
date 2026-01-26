@@ -1,0 +1,45 @@
+{
+  "version": 1767521723,
+  "updated_at": 1767521723,
+  "template_name": "Template",
+  "overrides": {
+    "sections": [
+      {
+        "selector": {
+          "by": "index",
+          "value": "S1"
+        },
+        "fields": {
+          "start_row": 6,
+          "end_row": 280,
+          "header_row": 5,
+          "label": "Nhật ký công việc"
+        }
+      },
+      {
+        "selector": {
+          "by": "index",
+          "value": "S2"
+        },
+        "fields": {
+          "start_row": 285,
+          "end_row": 295,
+          "header_row": 284,
+          "label": "Tiến độ dự án"
+        }
+      },
+      {
+        "selector": {
+          "by": "index",
+          "value": "S3"
+        },
+        "fields": {
+          "start_row": 300,
+          "end_row": 313,
+          "header_row": 299,
+          "label": "Kế hoạch tháng 4"
+        }
+      }
+    ]
+  }
+}

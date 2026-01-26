@@ -1,0 +1,20 @@
+{
+  "version": "1.2",
+  "type": "structured",
+  "index_base": "zero",
+  "header_row": 5,
+  "sections": [
+    {
+      "start_row": 6,
+      "end_row": 12,
+      "header_row": 5,
+      "label": "NKCV"
+    },
+    {
+      "start_row": 35,
+      "end_row": 49,
+      "header_row": 34,
+      "label": "Tiến độ"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "version": 1767079005,
+  "updated_at": 1767079005,
+  "overrides": {
+    "sections": [
+      {
+        "selector": {
+          "by": "index",
+          "value": "S1"
+        },
+        "fields": {
+          "start_row": 6,
+          "end_row": 259,
+          "header_row": 5,
+          "label": "Nhật kỹ công việc tháng 2"
+        }
+      },
+      {
+        "selector": {
+          "by": "index",
+          "value": "S2"
+        },
+        "fields": {
+          "start_row": 264,
+          "end_row": 278,
+          "header_row": 263,
+          "label": "Dự án tháng 2"
+        }
+      },
+      {
+        "selector": {
+          "by": "index",
+          "value": "S3"
+        },
+        "fields": {
+          "start_row": 283,
+          "end_row": 293,
+          "header_row": 282,
+          "label": "Kế hoạch tháng 3"
+        }
+      }
+    ]
+  }
+}

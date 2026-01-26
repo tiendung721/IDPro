@@ -1,0 +1,14 @@
+{
+  "version": "1.2",
+  "type": "structured",
+  "index_base": "zero",
+  "header_row": 1,
+  "sections": [
+    {
+      "start_row": 2,
+      "end_row": 53,
+      "header_row": 1,
+      "label": "Section 1"
+    }
+  ]
+}
