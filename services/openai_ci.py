@@ -130,83 +130,99 @@ NGUYÊN TẮC TRẢ LỜI:
 {_PY_HELPERS}
 """
 
-INSTRUCTIONS_FINAL = f"""
-Bạn là một nhân viên phân tích dữ liệu.
-Nhiệm vụ của bạn là lập MỘT BÁO CÁO TỔNG HỢP NGẮN GỌN dưới dạng GẠCH ĐẦU DÒNG để giải thích nội dung file Excel cho người quản lý.
+
+# =========================
+# FINAL_SPEC: JSON report spec for dashboard renderer
+# =========================
+INSTRUCTIONS_FINAL_SPEC = f"""
+Bạn là một AI Agent phân tích dữ liệu và xuất ra **REPORT SPEC** dưới dạng JSON để hệ thống render thành dashboard.
 
 ========================
 NGỮ CẢNH & DỮ LIỆU
 ========================
-- File trong /mnt/data là FILE GỐC, giữ nguyên cấu trúc ban đầu.
+- File trong /mnt/data là FILE GỐC, giữ nguyên cấu trúc.
 - Cấu trúc bảng hợp lệ DUY NHẤT được mô tả trong MANIFEST_JSON.
-- Chỉ được phân tích các bảng trong manifest, không suy đoán ngoài phạm vi này.
+- Chỉ phân tích các bảng trong manifest.
 
 ========================
-NGUYÊN TẮC BẮT BUỘC
+MỤC TIÊU ĐẦU RA
 ========================
-- Ngôn ngữ: tiếng Việt.
-- Chỉ sử dụng Python (Code Interpreter) để đọc và phân tích dữ liệu.
-- Không in bảng, không in dataframe, không in dữ liệu thô.
-- Không gán ngành nghề hoặc bối cảnh nếu không có đủ cơ sở từ dữ liệu.
-- Không viện dẫn yếu tố bên ngoài dữ liệu.
-- __src_row__ chỉ dùng để truy vết nội bộ, KHÔNG in literal "__src_row__".
+Bạn phải trả về DUY NHẤT một JSON hợp lệ (không kèm markdown, không kèm giải thích).
+JSON này sẽ được UI render theo các "slots" cố định:
+- header
+- kpi_row
+- tabs: performance, segment, channel, type, risk
+- appendix
 
 ========================
-CÁCH LÀM
+YÊU CẦU BẮT BUỘC
 ========================
-- Xác định file dữ liệu gốc trong /mnt/data.
-- Parse MANIFEST_JSON để biết danh sách các bảng đã được xác nhận.
-- Cắt dữ liệu theo từng bảng đúng ranh giới trong manifest.
-- Phân tích từng bảng riêng lẻ trước khi tổng hợp.
-
-========================
-ĐỊNH DẠNG BÁO CÁO (BẮT BUỘC)
-========================
-Báo cáo PHẢI viết dưới dạng gạch đầu dòng.
-Mỗi gạch đầu dòng là một ý hoàn chỉnh, rõ ràng.
-Không viết thành đoạn văn dài.
+- Ngôn ngữ: tiếng Việt (các title/label/insight).
+- Chỉ dùng Python (Code Interpreter) để đọc và tính toán.
+- Không in dataframe/bảng thô.
+- Không bịa dữ liệu.
+- Mọi số liệu trong JSON phải xuất phát từ dữ liệu sau khi cắt theo manifest.
 
 ========================
-NỘI DUNG BÁO CÁO
+SCHEMA JSON (BẮT BUỘC)
 ========================
-
-I. TỔNG QUAN FILE DỮ LIỆU
-- File gồm bao nhiêu bảng (theo manifest).
-- Mỗi bảng phản ánh loại thông tin gì.
-- Quy mô tương đối của từng bảng (ít / vừa / nhiều dòng).
-
-II. Ý NGHĨA DỮ LIỆU
-- Mỗi bảng: mỗi dòng đại diện cho đối tượng / sự kiện gì.
-- Các nhóm cột chính trong từng bảng:
-  - Cột định danh.
-  - Cột phân loại.
-  - Cột số liệu.
-  - Cột thời gian (nếu có).
-
-III. ĐIỂM ĐÁNG CHÚ Ý
-- Các phân bố nổi bật trong dữ liệu.
-- Nhóm giá trị hoặc nhóm đối tượng chiếm tỷ trọng lớn.
-- Các xu hướng rõ ràng (nếu có).
-- Các điểm bất thường hoặc khác biệt đáng lưu ý.
-
-IV. PHÁT HIỆN TỔNG HỢP
-- Những insight quan trọng nhất rút ra từ toàn bộ dữ liệu.
-- Mối liên hệ giữa các bảng (chỉ nêu nếu dữ liệu thể hiện rõ).
-- Những điểm có thể ảnh hưởng đến việc theo dõi hoặc phân tích sau này.
-
-V. KẾT LUẬN NGẮN GỌN
-- Tóm tắt nhanh bức tranh tổng thể của file dữ liệu.
-- Các hướng cần theo dõi hoặc phân tích thêm (mang tính gợi ý, không phải quyết định).
+{{
+  "meta": {{
+    "title": str,
+    "time_range": str|None,
+    "tables": [{{"table_id": str, "rows": int, "cols": int, "guess": str}}],
+    "data_quality_note": str
+  }},
+  "executive_summary": {{
+    "key_findings": [str],
+    "risks": [str],
+    "actions": [str]
+  }},
+  "kpi_row": [
+    {{"id": str, "label": str, "value": float|int|str, "unit": str|None, "delta": str|None, "note": str|None}}
+  ],
+  "tabs": [
+    {{
+      "id": "performance"|"segment"|"channel"|"type"|"risk",
+      "title": str,
+      "blocks": [
+        {{
+          "type": "line"|"bar"|"pie"|"heatmap"|"table"|"anomaly_list"|"text",
+          "title": str,
+          "subtitle": str|None,
+          "data": [object]|None,
+          "encoding": {{"x": str|None, "y": str|None, "color": str|None, "row": str|None, "col": str|None, "value": str|None}}|None,
+          "insight": str|None
+        }}
+      ]
+    }}
+  ],
+  "quality": {{
+    "missingness": [{{"table_id": str, "metric": str, "value": float, "note": str}}],
+    "confidence": "high"|"medium"|"low"
+  }},
+  "appendix": [{{"title": str, "table_id": str, "data": [object]}}]
+}}
 
 ========================
-YÊU CẦU CUỐI
+HƯỚNG DẪN LẬP BIỂU ĐỒ (HEURISTICS)
 ========================
-- Chỉ sử dụng gạch đầu dòng.
-- Không viết văn xuôi.
-- Ngắn gọn, súc tích, tập trung vào điều quan trọng nhất.
-- Báo cáo phải đọc nhanh và hiểu ngay.
+1) Nếu có cột thời gian (date/datetime/Ngày/Tháng/Năm...):
+   - tạo block line: metric theo thời gian.
+2) Chọn 1-2 dimension phân loại mạnh nhất (ít giá trị, xuất hiện nhiều) để breakdown bằng bar/pie.
+3) Nếu có 2 dimension dạng category x category và 1 metric số: tạo heatmap.
+4) Luôn tạo ít nhất 1 table "Top N" (N<=20) cho các record đóng góp lớn nhất theo 1 metric số.
+5) Tab risk: tạo anomaly_list (top 5-10 điểm bất thường) + 1-2 chỉ số chất lượng dữ liệu.
+
+========================
+GIỚI HẠN KÍCH THƯỚC
+========================
+- Mỗi block "data" tối đa 200 dòng.
+- Appendix tổng tối đa 200 dòng.
+
 {_PY_HELPERS}
 """
+
 
 
 _client: Optional[OpenAI] = None
@@ -255,11 +271,12 @@ def ask_ci_qa(
     return _ask_ci(file_id, content, model, previous_response_id)
 
 
-def ask_ci_final(
+
+def ask_ci_final_spec(
     file_id: str,
     model: str,
     previous_response_id: Optional[str],
     manifest_json: str,
 ) -> Tuple[str, str]:
-    content = f"{INSTRUCTIONS_FINAL}\n\nMANIFEST_JSON:\n{manifest_json}\n"
+    content = f"{INSTRUCTIONS_FINAL_SPEC}\n\nMANIFEST_JSON:\n{manifest_json}\n"
     return _ask_ci(file_id, content, model, previous_response_id)

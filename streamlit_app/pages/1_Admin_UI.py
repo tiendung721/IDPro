@@ -5,9 +5,60 @@ from src.state import init_state
 from src import api
 
 from src.ui import sections_to_df_1based, sections_editor_with_add_delete
+from src.dashboard_renderer import render_dashboard
+
 
 st.set_page_config(page_title="Admin – AI Agent", layout="wide")
 init_state()
+
+st.markdown("""
+<style>
+[data-testid="stSidebarNav"] { display: none !important; }
+
+/* Layout tighten */
+.block-container { padding-top: 1.0rem; padding-bottom: 3rem; }
+
+/* Hero */
+.hero {
+  padding: 1.6rem 1.7rem;
+  border-radius: 18px;
+  background: radial-gradient(1200px circle at 10% 10%, rgba(255,255,255,0.22), transparent 55%),
+              linear-gradient(120deg, #4f46e5, #06b6d4);
+  color: white;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.12);
+}
+.hero h1 { font-size: 2rem; margin: 0 0 .35rem 0; }
+.hero p { margin: 0; opacity: .92; }
+
+/* Chips */
+.chip {
+  display: inline-block;
+  padding: .22rem .55rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
+  margin-right: .4rem;
+  font-size: .85rem;
+}
+
+/* Report canvas */
+.report-canvas {
+  background: linear-gradient(180deg, #fafafa, #ffffff);
+  padding: 1.25rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.06);
+}
+
+/* Subtle divider */
+.hr {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 1.1rem 0 1.1rem 0;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ===== Guard =====
 is_admin = bool(st.session_state.get("admin_logged_in")) and (st.session_state.get("admin_role") or "").upper() == "ADMIN"
@@ -21,15 +72,25 @@ if not is_admin:
 # admin token
 api.set_token(st.session_state.get("admin_token") or "")
 
-st.title("AI Agent – Excel analysis with LLM ")
-st.caption(
-    f"ADMIN: **{st.session_state.get('admin_email') or '∅'}** | "
-    f"Role: **{(st.session_state.get('admin_role') or '∅').upper()}**"
-)
+admin_email = st.session_state.get("admin_email") or "∅"
+admin_role = (st.session_state.get("admin_role") or "∅").upper()
+
+st.markdown(f"""
+<div class="hero">
+  <h1>AI Agent – Excel analysis with LLM</h1>
+  <p>
+    <span class="chip">🛡️ {admin_email}</span>
+    <span class="chip">🔐 {admin_role}</span>
+    <span class="chip">📊 Final Spec Dashboard</span>
+    <span class="chip">💬 QA Chat</span>
+  </p>
+</div>
+""", unsafe_allow_html=True)
 
 # =========================
-# Helpers: preview sections parsing (y như app.py cũ)
+# Helpers: preview sections parsing
 # =========================
+
 def _extract_sections_any_shape(obj):
     data = obj if isinstance(obj, dict) else {}
     for key in ("sections", "auto_sections", "confirmed_sections"):
@@ -85,16 +146,19 @@ def fetch_preview():
     st.session_state.sections = sections
     return True
 
+def _safe_get_spec(spec_payload):
+    
+    if isinstance(spec_payload, dict) and not spec_payload.get("ok", True):
+        return None
 
-def _extract_report_text(final_payload: dict) -> str:
-    if not isinstance(final_payload, dict):
-        return ""
-    data = final_payload.get("data")
-    if isinstance(data, dict) and isinstance(data.get("report"), str):
-        return data["report"]
-    if isinstance(final_payload.get("report"), str):
-        return final_payload["report"]
-    return ""
+    spec = None
+    if isinstance(spec_payload, dict):
+        data = spec_payload.get("data") if isinstance(spec_payload.get("data"), dict) else None
+        spec = (data or {}).get("spec") or spec_payload.get("spec")
+
+    if isinstance(spec, dict) and spec:
+        return spec
+    return None
 
 
 # =========================
@@ -102,7 +166,21 @@ def _extract_report_text(final_payload: dict) -> str:
 # =========================
 with st.sidebar:
     st.success("ADMIN đã đăng nhập")
-
+    
+    if st.button("Admin Logout", key="btn_admin_logout_page"):
+        st.session_state.admin_token = ""
+        st.session_state.admin_logged_in = False
+        st.session_state.admin_email = ""
+        st.session_state.admin_role = ""
+        st.session_state.user_mode = "USER"
+        st.session_state.pop("user_token", None)
+        try:
+            st.switch_page("app.py")
+        except Exception:
+            st.rerun()
+            
+    st.divider()
+    
     st.subheader("Upload")
     file = st.file_uploader("Chọn file .xlsx/.xls/.csv", type=["xlsx", "xls", "csv"])
     st.text_input("Sheet name (tùy chọn)", key="sheet_name")
@@ -124,10 +202,11 @@ with st.sidebar:
                     st.session_state.finalized = False
 
                     # reset report + chat states
-                    st.session_state.final_result = {}
-                    st.session_state["_greeted_after_final"] = False
+                    st.session_state["_greeted_after_finalize"] = False
                     st.session_state.qa_messages = []
                     st.session_state.finalize_rev = 0
+                    st.session_state["final_spec_result_admin"] = {}
+
 
                     st.success(f"Upload OK. session_id = {sid}")
                 else:
@@ -139,60 +218,38 @@ with st.sidebar:
     if st.button("Test /health", key="btn_health_sidebar"):
         st.json(api.health())
 
-    st.divider()
-    if st.button("Admin Logout", key="btn_admin_logout_page"):
-        st.session_state.admin_token = ""
-        st.session_state.admin_logged_in = False
-        st.session_state.admin_email = ""
-        st.session_state.admin_role = ""
-        st.session_state.user_mode = "USER"
-        st.session_state.pop("user_token", None)
-        try:
-            st.switch_page("app.py")
-        except Exception:
-            st.rerun()
-
 
 # =========================
 # Tabs
 # =========================
 tab_ops, tab_users = st.tabs(["Vận hành", "Quản lý user"])
 
-
 # =========================
 # TAB: Vận hành
 # =========================
 with tab_ops:
-    # --- Preview ---
-    st.subheader("Preview")
+    st.subheader("Preview & chỉnh sửa cấu trúc")
 
     sid = (st.session_state.session_id or "").strip()
     sheet = (st.session_state.sheet_name or "").strip() or None
     st.caption(f"Session: **{sid or '∅'}** | Sheet: **{sheet or 'None'}** | Role: **ADMIN**")
 
-    if st.button("Tải lại Preview", key="btn_preview_reload"):
-        fetch_preview()
+    row1 = st.columns([1, 3, 2])
+    with row1[0]:
+        st.button("Tải lại preview", on_click=fetch_preview, disabled=not bool(sid), key="btn_admin_preview_reload_main")
+    with row1[1]:
+        st.write("Hệ thống tự detect các vùng bảng. Bạn có thể chỉnh trực tiếp trên bảng preview, rồi bấm **Áp dụng thay đổi**.")
 
+    if not sid:
+        st.info("Hãy Upload file ở sidebar để có session_id trước.")
+        st.stop()
+
+    # auto preview once
     if not st.session_state.get("_preview_fetched", False) and sid:
         st.session_state._preview_fetched = True
         fetch_preview()
 
-    st.markdown("**Preview sections (1-based)**")
-    if st.session_state.get("sections"):
-        st.dataframe(
-            sections_to_df_1based(st.session_state.sections),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("Chưa có sections. Upload file ở sidebar rồi bấm 'Tải lại Preview'.")
-
-    st.markdown("---")
-
-    # --- Sections Editor + Finalize ---
-    st.subheader("Chỉnh sửa sections (áp dụng cho session)")
-    sid = (st.session_state.get("session_id") or "").strip()
-
+    # nếu muốn luôn lấy sections từ BE (để đồng bộ) thì sync
     if sid and not st.session_state.get("_sections_loaded_from_be", False):
         try:
             resp = api.sections_get(sid)
@@ -202,85 +259,117 @@ with tab_ops:
         except Exception as e:
             st.warning(f"Không tải được sections: {e}")
 
+    if not st.session_state.get("sections"):
+        st.warning("Chưa có bảng. Bấm 'Tải lại preview' hoặc Upload lại.")
+        st.stop()
+
+    # ===== One unified editable preview (1-based in UI) =====
     df1 = sections_to_df_1based(st.session_state.get("sections", []))
-    edited_zero_df, del_rows, create_payload = sections_editor_with_add_delete(df1, key_prefix="secx_admin")
+    edited_zero_df, del_rows, _ = sections_editor_with_add_delete(
+        df1,
+        key_prefix="secx_admin_main",
+        lang="vi",
+        show_titles=False,
+        show_create=False,
+    )
 
-    colA, colB, colC, colD, colE = st.columns([1, 1, 2, 2, 2])
+    # ===== Actions =====
+    row_top = st.columns([1, 1, 2])
+    row_bottom = st.columns([1, 1, 2]) 
 
-    with colA:
-        if st.button("Áp dụng thay đổi", key="btn_apply_be_crud"):
+    # --- TOP ROW: apply / delete / add ---
+    with row_top[0]:
+        if st.button("Áp dụng thay đổi", key="btn_admin_apply_sections_main", use_container_width=True):
             payload = edited_zero_df.to_dict(orient="records")
             res = api.sections_replace(sid, payload)
             if isinstance(res, dict) and res.get("ok"):
                 st.success("Đã cập nhật sections lên BE.")
                 st.session_state["sections"] = res["data"]["sections"]
-
-                # invalidate report + chat
                 st.session_state.finalized = False
-                st.session_state.final_result = {}
                 st.session_state.qa_messages = []
-                st.session_state["_greeted_after_final"] = False
+                st.session_state["_greeted_after_finalize"] = False
             else:
                 st.error(res)
 
-    with colB:
-        if st.button("Xoá các section đã chọn", key="btn_delete_sections"):
+    with row_top[1]:
+        if st.button("Xoá bảng đã chọn", key="btn_admin_delete_sections_main", use_container_width=True):
             cur = edited_zero_df.to_dict(orient="records")
             keep = [v for i, v in enumerate(cur) if i not in del_rows]
             res = api.sections_replace(sid, keep)
             if isinstance(res, dict) and res.get("ok"):
                 st.success("Đã xoá.")
                 st.session_state["sections"] = res["data"]["sections"]
-
-                # invalidate report + chat
                 st.session_state.finalized = False
-                st.session_state.final_result = {}
                 st.session_state.qa_messages = []
-                st.session_state["_greeted_after_final"] = False
+                st.session_state["_greeted_after_finalize"] = False
+            else:
+                st.error(res)
 
-    with colC:
-        if st.button("Thêm section mới", key="btn_add_section"):
-            res = api.sections_add(sid, create_payload)
-            if isinstance(res, dict) and res.get("ok"):
-                st.success("Đã thêm.")
-                st.session_state["sections"] = res["data"]["sections"]
+    with row_top[2]:
+        with st.expander("Thêm bảng mới (1-based)", expanded=False):
+            c1, c2, c3, c4 = st.columns(4)
 
-                # invalidate report + chat
-                st.session_state.finalized = False
-                st.session_state.final_result = {}
-                st.session_state.qa_messages = []
-                st.session_state["_greeted_after_final"] = False
+            default_new_start = 1
+            try:
+                if not df1.empty and "start_row" in df1.columns:
+                    default_new_start = int(df1["start_row"].max()) + 1
+            except Exception:
+                default_new_start = 1
 
-    with colD:
-        if st.button("Finalize sections (Report/QA)", type="primary", key="btn_finalize_sections"):
+            with c1:
+                new_start = st.number_input("Dòng bắt đầu", min_value=1, value=int(default_new_start), key="secx_admin_new_start")
+            with c2:
+                new_end = st.number_input("Dòng kết thúc", min_value=int(new_start), value=int(new_start), key="secx_admin_new_end")
+            with c3:
+                new_header = st.number_input("Dòng tiêu đề", min_value=int(new_start), max_value=int(new_end), value=int(new_start), key="secx_admin_new_header")
+            with c4:
+                new_label = st.text_input("Tên bảng", value="", key="secx_admin_new_label")
+
+            create_payload = {
+                "start_row": int(new_start - 1),
+                "end_row": int(new_end - 1),
+                "header_row": int(new_header - 1),
+                "label": (new_label or "").strip(),
+            }
+
+            if st.button("Thêm bảng mới", key="btn_admin_add_section_main", use_container_width=True):
+                res = api.sections_add(sid, create_payload)
+                if isinstance(res, dict) and res.get("ok"):
+                    st.success("Đã thêm.")
+                    st.session_state["sections"] = res["data"]["sections"]
+                    st.session_state.finalized = False
+                    st.session_state.qa_messages = []
+                    st.session_state["_greeted_after_finalize"] = False
+                else:
+                    st.error(res)
+
+    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
+
+    # --- BOTTOM ROW: finalize / save template ---
+    with row_bottom[0]:
+        if st.button("Finalize sections (Report/QA)", type="primary", key="btn_admin_finalize_main", use_container_width=True):
             edited_payload = edited_zero_df.to_dict(orient="records")
             with st.spinner("Đang finalize sections..."):
                 r = api.finalize_sections(sid, edited_payload, sheet)
-
-            with st.expander("Resp /confirm_sections (Finalize)"):
-                st.json(r)
 
             ok = isinstance(r, dict) and (r.get("ok") is True or "data" in r or "message" in r)
             if ok:
                 st.session_state.finalized = True
                 st.session_state.finalize_rev = int(st.session_state.get("finalize_rev", 0)) + 1
-
-                # IMPORTANT: report is on-demand now => clear old report until button pressed
-                st.session_state.final_result = {}
-
-                # reset chat ui
                 st.session_state.qa_messages = []
-                st.session_state["_greeted_after_final"] = False
-
+                st.session_state["_greeted_after_finalize"] = False
+                st.session_state["final_spec_result_admin"] = {}
                 st.success("Đã Finalize sections cho session (dùng cho Report/QA).")
                 sync_sections_from_be()
                 st.rerun()
             else:
                 st.error(f"{r.get('code')} – {r.get('error')}")
+                with st.expander("Resp /confirm_sections (Finalize)"):
+                    st.json(r)
 
-    with colE:
-        if st.button("Admin: Confirm & Save Template", key="btn_admin_save_template"):
-            if not st.session_state.finalized:
+    with row_bottom[1]:
+        if st.button("Admin: Confirm & Save Template", key="btn_admin_save_template_main", use_container_width=True):
+            if not st.session_state.get("finalized", False):
                 edited_payload = edited_zero_df.to_dict(orient="records")
                 with st.spinner("Đang finalize trước khi lưu template..."):
                     r1 = api.finalize_sections(sid, edited_payload, sheet)
@@ -298,7 +387,10 @@ with tab_ops:
             else:
                 st.error(f"{r2.get('code')} – {r2.get('error')}")
 
-    st.markdown("---")
+    # cột đệm để cân layout
+    with row_bottom[2]:
+        st.write("")
+
 
     # =========================
     # Final Summary + Chatbot (ON-DEMAND FINAL + SPINNER QA)
@@ -312,86 +404,86 @@ with tab_ops:
     if not sid:
         st.info("Hãy Upload file ở sidebar để có session_id trước.")
     elif not is_finalized:
-        st.info("Hãy Finalize sections ở bước trên. Sau đó bạn có thể bấm nút để tạo báo cáo tổng hợp và bật chatbot.")
+        st.info("Hãy Finalize sections ở bước trên. Sau đó bạn có thể bật chatbot QA.")
     else:
-        # ===== ON-DEMAND FINAL: only run when button pressed =====
-        if st.button("Tạo báo cáo tổng hợp", type="primary", key="btn_admin_run_final"):
-            with st.spinner("Đang tạo báo cáo tổng hợp (Code Interpreter) ..."):
-                try:
-                    st.session_state.final_result = api.run_final(sid)
-                except Exception as e:
-                    st.error(f"Lỗi gọi /final: {e}")
-                    st.session_state.final_result = {}
+        tab_report_admin, tab_qa_admin = st.tabs(["📊 Analysis Report", "💬 Chatbot QA"])
 
-        res = st.session_state.get("final_result") or {}
-        report_text = _extract_report_text(res)
+        # ---------- REPORT TAB ----------
+        with tab_report_admin:
+            c1, c2 = st.columns([1, 3])
+            with c1:
+                if st.button("Tạo báo cáo ", type="primary", key="btn_admin_run_final_spec"):
+                    with st.spinner("Đang tạo Final Spec (CI)..."):
+                        # dùng đúng hàm trong api.py
+                        st.session_state["final_spec_result_admin"] = api.run_final_spec(sid)
 
-        # optional debug
-        with st.expander("Payload /final (debug)"):
-            st.json(res)
+            payload = st.session_state.get("final_spec_result_admin") or {}
 
-        st.markdown("### Narrative (Báo cáo tổng hợp)")
-        if report_text:
-            st.markdown(report_text)
-        else:
-            st.caption("Chưa có báo cáo. Bấm **Tạo báo cáo tổng hợp** để sinh báo cáo (on-demand).")
+            # show error
+            if isinstance(payload, dict) and payload and not payload.get("ok", True):
+                st.error(f"API lỗi ({payload.get('status_code')}): {payload.get('error')}")
+                with st.expander("Resp /final_spec"):
+                    st.json(payload)
 
-        st.markdown("---")
+            spec = _safe_get_spec(payload)
+            if spec:
+                render_dashboard(spec)
+            else:
+                st.caption("Chưa có report. Bấm **Tạo báo cáo dashboard** để sinh spec và render.")
 
-        # ===== Chatbot =====
-        st.markdown("### Chatbot")
-        st.caption("Hỏi trên dữ liệu sau khi đã Finalize sections.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        if "qa_messages" not in st.session_state:
-            st.session_state.qa_messages = []
+        # ---------- QA TAB ----------
+        with tab_qa_admin:
+            st.markdown("### Chatbot")
+            st.caption("Hỏi trên dữ liệu sau khi đã Finalize sections.")
 
-        # greeting once (không bắt buộc phải có report)
-        if not st.session_state.get("_greeted_after_final", False):
-            st.session_state.qa_messages.append(
-                {"role": "assistant", "content": "Chào bạn 👋 Bạn muốn hỏi gì về dữ liệu trong file này?"}
-            )
-            st.session_state["_greeted_after_final"] = True
-
-
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
-        with ctrl1:
-            reset_chat = st.checkbox("Reset chat", value=False, key="qa_reset_chat_admin")
-        with ctrl2:
-            debug = st.checkbox("Debug", value=False, key="qa_debug_admin")
-        with ctrl3:
-            if st.button("Xoá lịch sử chat UI", key="btn_clear_chat_ui_admin"):
+            if "qa_messages" not in st.session_state:
                 st.session_state.qa_messages = []
-                st.session_state["_greeted_after_final"] = False
-                st.rerun()
 
-        for m in st.session_state.qa_messages:
-            with st.chat_message(m["role"]):
-                st.markdown(m["content"])
+            if not st.session_state.get("_greeted_after_finalize", False):
+                st.session_state.qa_messages.append(
+                    {"role": "assistant", "content": "Chào bạn 👋 Bạn muốn hỏi gì về dữ liệu trong file này?"}
+                )
+                st.session_state["_greeted_after_finalize"] = True
 
-        q = st.chat_input("Nhập câu hỏi của bạn...", key="qa_input_admin")
-        if q:
-            st.session_state.qa_messages.append({"role": "user", "content": q})
+            ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
+            with ctrl1:
+                reset_chat = st.checkbox("Reset chat", value=False, key="qa_reset_chat_admin")
+            with ctrl2:
+                debug = st.checkbox("Debug", value=False, key="qa_debug_admin")
+            with ctrl3:
+                if st.button("Xoá lịch sử chat UI", key="btn_clear_chat_ui_admin"):
+                    st.session_state.qa_messages = []
+                    st.session_state["_greeted_after_finalize"] = False
+                    st.rerun()
 
-            try:
-                # ✅ SPINNER ONLY (no "Đang suy nghĩ..." bubble)
-                with st.spinner("Đang suy nghĩ ( CI )..."):
-                    resp = api.qa(session_id=sid, question=q, reset_chat=reset_chat)
+            for m in st.session_state.qa_messages:
+                with st.chat_message(m["role"]):
+                    st.markdown(m["content"])
 
-                answer = ""
-                if isinstance(resp, dict):
-                    answer = (resp.get("answer") or "").strip()
-                if not answer:
-                    answer = "Không nhận được 'answer' từ /qa."
+            q = st.chat_input("Nhập câu hỏi của bạn...", key="qa_input_admin")
+            if q:
+                st.session_state.qa_messages.append({"role": "user", "content": q})
 
-                if debug:
-                    answer += "\n\n---\nDebug response:\n" + str(resp)
+                try:
+                    with st.spinner("Đang suy nghĩ ( CI )..."):
+                        resp = api.qa(session_id=sid, question=q, reset_chat=reset_chat)
 
-                st.session_state.qa_messages.append({"role": "assistant", "content": answer})
-                st.rerun()
-            except Exception as e:
-                st.session_state.qa_messages.append({"role": "assistant", "content": f"Lỗi gọi /qa: {e}"})
-                st.rerun()
+                    answer = ""
+                    if isinstance(resp, dict):
+                        answer = (resp.get("answer") or "").strip()
+                    if not answer:
+                        answer = "Không nhận được 'answer' từ /qa."
 
+                    if debug:
+                        answer += "\n\n---\nDebug response:\n" + str(resp)
+
+                    st.session_state.qa_messages.append({"role": "assistant", "content": answer})
+                    st.rerun()
+                except Exception as e:
+                    st.session_state.qa_messages.append({"role": "assistant", "content": f"Lỗi gọi /qa: {e}"})
+                    st.rerun()
 
 # =========================
 # TAB: Quản lý user

@@ -8,9 +8,36 @@ init_state()
 st.title("AI Agent – Excel analysis with LLM")
 st.caption("Chọn đăng nhập User hoặc Admin ở sidebar.")
 
+st.markdown("""
+<style>
+[data-testid="stSidebarNav"] { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
+
+
 # =========================
 # Helpers
 # =========================
+def logout_user():
+    st.session_state.pop("user_token", None)
+    st.session_state.pop("user_name", None)
+    # nếu bạn có các state khác liên quan user thì reset thêm ở đây
+    st.rerun()
+
+def logout_admin():
+    st.session_state.pop("admin_token", None)
+    st.session_state.pop("admin_logged_in", None)
+    st.session_state.pop("admin_email", None)
+    st.session_state.pop("admin_role", None)
+    st.rerun()
+
+def is_user_logged_in():
+    return bool(st.session_state.get("user_token"))
+
+def is_admin_logged_in():
+    return bool(st.session_state.get("admin_token")) and bool(st.session_state.get("admin_logged_in"))
+
+
 def _switch_page(path: str):
     """
     Streamlit multipage router.
@@ -20,8 +47,8 @@ def _switch_page(path: str):
         st.switch_page(path)
     except Exception:
         st.error(
-            "Không chuyển trang được (thiếu multipage hoặc Streamlit quá cũ). "
-            "Hãy đảm bảo có thư mục streamlit_app/pages/ và nâng Streamlit >= 1.22."
+            "old Streamlit version không hỗ trợ chuyển trang tự động. "
+            "lost file "
         )
         st.stop()
 
@@ -62,56 +89,68 @@ def goto_user():
 # Sidebar: User + Admin
 # =========================
 with st.sidebar:
-    st.header("User")
-    username = st.text_input("Username", key="user_username", placeholder="VD: dung, user01...")
+    st.markdown("### 🔐 Đăng nhập")
 
-    if st.button("Login", key="btn_enter_user"):
-        if not username.strip():
-            st.warning("Vui lòng nhập username.")
-        else:
-            st.session_state.user_name = username.strip()
-            st.session_state.session_id = ""
-            st.session_state.sections = []
-            st.session_state.finalized = False
-            st.session_state.final_result = {}
-            st.session_state._preview_fetched = False
-            st.session_state._sections_loaded_from_be = False
-            # các key UI khác có thể tồn tại từ lần trước
-            for k in ["qa_messages", "finalize_rev", "_last_final_rev", "_last_final_sid", "_last_final_sheet", "_greeted_after_final"]:
-                st.session_state.pop(k, None)
+    tab_user, tab_admin = st.tabs(["User", "Admin"])
 
-            goto_user()
+    with tab_user:
+        with st.form("login_user", clear_on_submit=False):
+            username = st.text_input("Username", placeholder="user01")
+            ok = st.form_submit_button("Đăng nhập", use_container_width=True)
 
-    st.divider()
-    st.header("Admin Login")
-
-    email = st.text_input("Email", key="admin_email_input")
-    password = st.text_input("Mật khẩu", type="password", key="admin_password_input")
-
-    if st.button("Login", key="btn_admin_login"):
-        resp = api.login(email, password)
-        if isinstance(resp, dict) and resp.get("ok") is False:
-            st.error(f"{resp.get('code','LOGIN_FAILED')} – {resp.get('error','')}")
-        else:
-            token = None
-            if isinstance(resp, dict):
-                token = resp.get("access_token") or resp.get("token")
-                data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
-                token = token or data.get("access_token") or data.get("token")
-
-            if not token:
-                st.error("Login không trả về token (access_token).")
+        if ok:
+            username = (username or "").strip()
+            if not username:
+                st.error("Nhập username.")
             else:
-                role = ""
-                if isinstance(resp, dict):
-                    role = (resp.get("role") or (resp.get("data") or {}).get("role") or "").upper()
+                resp = api.user_login(username)
+                if not isinstance(resp, dict) or not resp.get("ok"):
+                    st.error(resp.get("error") or resp.get("detail") or "User login failed.")
+                else:
+                    token = (resp.get("data") or {}).get("access_token")
+                    if not token:
+                        st.error("Thiếu access_token.")
+                    else:
+                        st.session_state["user_token"] = token
+                        st.session_state["user_name"] = username
+                        st.session_state["user_role"] = "USER"
+                        api.set_token(token)
+                        st.switch_page("pages/2_User_UI.py")
 
-                st.session_state.admin_token = token
-                st.session_state.admin_email = email
-                st.session_state.admin_role = role or "ADMIN"
-                st.session_state.admin_logged_in = True
+    with tab_admin:
+        with st.form("login_admin", clear_on_submit=False):
+            email = st.text_input("Email", placeholder="admin@company.com")
+            password = st.text_input("Mật khẩu", type="password")
+            ok = st.form_submit_button("Đăng nhập", use_container_width=True)
 
-                goto_admin()
+        if ok:
+            email = (email or "").strip()
+            if not email or not password:
+                st.error("Nhập email và mật khẩu.")
+            else:
+                resp = api.login(email, password)
+
+                # parse token linh hoạt
+                if isinstance(resp, dict) and resp.get("ok") is False:
+                    st.error(resp.get("error") or "Admin login failed.")
+                else:
+                    token = None
+                    role = "ADMIN"
+                    if isinstance(resp, dict):
+                        token = resp.get("access_token") or resp.get("token")
+                        data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+                        token = token or data.get("access_token") or data.get("token")
+                        role = (resp.get("role") or data.get("role") or "ADMIN")
+
+                    if not token:
+                        st.error("Login không trả về token.")
+                    else:
+                        st.session_state["admin_token"] = token
+                        st.session_state["admin_logged_in"] = True
+                        st.session_state["admin_role"] = role
+                        st.session_state["admin_email"] = email
+                        api.set_token(token)
+                        st.switch_page("pages/1_Admin_UI.py")
 
 # =========================
 # Landing content

@@ -137,8 +137,13 @@ def admin_save_template(session_id: str, sheet_name: Optional[str] = None) -> Di
         body["sheet_name"] = sheet_name
     return _post("/admin/save_template", json=body)
 
-def run_final(session_id: str) -> Dict[str, Any]:
-    return _post("/final", json={"session_id": session_id}, timeout=httpx.Timeout(300.0, connect=10.0))
+
+def run_final_spec(session_id: str, reset: bool = False) -> Dict[str, Any]:
+    return _post(
+        "/final_spec",
+        json={"session_id": session_id, "reset": bool(reset)},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
 
 def health() -> Dict[str, Any]:
     return _get("/health")

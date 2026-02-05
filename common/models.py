@@ -52,6 +52,9 @@ class SessionData(BaseModel):
     openai_file_id: Optional[str] = None
 
     final_prev_response_id: Optional[str] = None
+
+    # For dashboard JSON spec continuity (separate from narrative final)
+    final_spec_prev_response_id: Optional[str] = None
     
     # For chat continuity
     qa_prev_response_id: Optional[str] = None

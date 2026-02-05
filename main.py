@@ -79,7 +79,7 @@ if history_router is not None:
 
 @app.get("/")
 def index():
-    endpoints = ["/upload", "/preview", "/confirm_sections", "/final", "/qa", "/health", "/static/<file>"]
+    endpoints = ["/upload", "/preview", "/confirm_sections", "/final", "/final_spec", "/qa", "/health", "/static/<file>"]
     if history_router is not None:
         endpoints.extend(["/history/{user_id} (GET)", "/history/{user_id} (DELETE)"])
     return {

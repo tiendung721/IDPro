@@ -59,9 +59,12 @@ def detect_sections_auto(df: pd.DataFrame) -> List[Dict[str, Any]]:
     for i in range(n):
         row = df.iloc[i]
 
-        # Dòng trống hoàn toàn (kết thúc section hiện tại nếu có)
         if row.isna().all():
             if in_section and start_row is not None:
+                if i == start_row:
+                    start_row += 1
+                    continue
+
                 end_row = i - 1  # inclusive 0-based
                 if end_row >= start_row:
                     sections.append({
@@ -71,6 +74,7 @@ def detect_sections_auto(df: pd.DataFrame) -> List[Dict[str, Any]]:
                         "label": f"Section {section_id}"
                     })
                     section_id += 1
+
                 # reset
                 in_section = False
                 header_row = None

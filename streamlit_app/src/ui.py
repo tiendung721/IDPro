@@ -80,6 +80,8 @@ def sections_editor_with_add_delete(
     df_1based: pd.DataFrame,
     key_prefix: str = "sec",
     lang: str = "en",
+    show_create: bool = True,
+    show_titles: bool = True,
 ):
     """
     Editor có checkbox xóa + form tạo section mới (1-based).
@@ -122,7 +124,8 @@ def sections_editor_with_add_delete(
     L = LABELS.get(lang, LABELS["en"])
 
     # ===== Sections list =====
-    st.markdown(L["title_list"])
+    if show_titles:
+        st.markdown(L["title_list"])
     df_show = df_1based.copy()
     df_show["Xóa?"] = False
 
@@ -144,53 +147,63 @@ def sections_editor_with_add_delete(
     # rows tick delete
     del_rows = [i for i, v in enumerate(edited["Xóa?"].tolist()) if v]
 
-    # ===== Create new =====
-    st.markdown(L["title_new"])
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
-
-    # Default start row: next line after current max start_row
-    default_new_start = 1
-    if not df_1based.empty and "start_row" in df_1based.columns:
-        try:
-            default_new_start = int(df_1based["start_row"].max()) + 1
-        except Exception:
-            default_new_start = 1
-
-    with c1:
-        new_start = st.number_input(
-            L["in_start"],
-            min_value=1,
-            value=default_new_start,
-            key=f"{key_prefix}_ns",
-        )
-    with c2:
-        new_end = st.number_input(
-            L["in_end"],
-            min_value=int(new_start),
-            value=int(new_start),
-            key=f"{key_prefix}_ne",
-        )
-    with c3:
-        new_header = st.number_input(
-            L["in_header"],
-            min_value=int(new_start),
-            max_value=int(new_end),
-            value=int(new_start),
-            key=f"{key_prefix}_nh",
-        )
-    with c4:
-        new_label = st.text_input(
-            L["in_label"],
-            value="",
-            key=f"{key_prefix}_nl",
-        )
-
+        # ===== Create new =====
     create_payload = {
-        "start_row": int(new_start - 1),
-        "end_row": int(new_end - 1),
-        "header_row": int(new_header - 1),
-        "label": (new_label or "").strip(),
+        "start_row": 0,
+        "end_row": 0,
+        "header_row": 0,
+        "label": "",
     }
+
+    if show_create:
+        if show_titles:
+            st.markdown(L["title_new"])
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
+
+        # Default start row: next line after current max start_row
+        default_new_start = 1
+        if not df_1based.empty and "start_row" in df_1based.columns:
+            try:
+                default_new_start = int(df_1based["start_row"].max()) + 1
+            except Exception:
+                default_new_start = 1
+
+        with c1:
+            new_start = st.number_input(
+                L["in_start"],
+                min_value=1,
+                value=default_new_start,
+                key=f"{key_prefix}_ns",
+            )
+        with c2:
+            new_end = st.number_input(
+                L["in_end"],
+                min_value=int(new_start),
+                value=int(new_start),
+                key=f"{key_prefix}_ne",
+            )
+        with c3:
+            new_header = st.number_input(
+                L["in_header"],
+                min_value=int(new_start),
+                max_value=int(new_end),
+                value=int(new_start),
+                key=f"{key_prefix}_nh",
+            )
+        with c4:
+            new_label = st.text_input(
+                L["in_label"],
+                value="",
+                key=f"{key_prefix}_nl",
+            )
+
+        create_payload = {
+            "start_row": int(new_start - 1),
+            "end_row": int(new_end - 1),
+            "header_row": int(new_header - 1),
+            "label": (new_label or "").strip(),
+        }
+
 
     # ===== Normalize edited table -> zero-based DataFrame =====
     out = []
