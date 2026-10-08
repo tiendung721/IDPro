@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict , Optional
 
 class IndexErrorDetail(Exception):
     def __init__(self, code: str, message: str):
@@ -43,25 +43,62 @@ def to_zero_based(sections: List[Dict], nrows: int) -> List[Dict]:
         })
     return out
 
-
-def validate_sections_zero_based(sections: List[Dict], nrows: int) -> List[Dict]:
-    """Clamp & validate cho 0‑based với end_row inclusive."""
+def validate_sections_zero_based(sections: List[Dict], nrows: int, ncols: Optional[int] = None) -> List[Dict]:
+    """
+    Clamp & validate cho 0-based với end_row inclusive.
+    Hỗ trợ thêm start_col/end_col (0-based, inclusive).
+    - Nếu ncols is None: không validate col, nhưng vẫn pass-through nếu có.
+    - Nếu ncols is not None: nếu thiếu col -> mặc định full width [0..ncols-1]
+    """
     if not sections:
         raise IndexErrorDetail("SECTIONS_EMPTY", "Không có section nào để xử lý")
+
     checked: List[Dict] = []
     for s in sections:
         sr = int(s["start_row"])
         er = int(s["end_row"])
         hr = int(s["header_row"])
+
         if not (0 <= hr <= sr <= er <= nrows - 1):
             raise IndexErrorDetail(
                 "INDEX_OUT_OF_RANGE",
                 f"header_row={hr}, start_row={sr}, end_row={er}, nrows={nrows}"
             )
+
+        # ---- cols (optional)
+        sc = s.get("start_col", None)
+        ec = s.get("end_col", None)
+
+        if ncols is not None:
+            # default full width if missing
+            if sc is None:
+                sc = 0
+            if ec is None:
+                ec = ncols - 1
+
+            sc = int(sc)
+            ec = int(ec)
+
+            if not (0 <= sc <= ec <= ncols - 1):
+                raise IndexErrorDetail(
+                    "COL_OUT_OF_RANGE",
+                    f"start_col={sc}, end_col={ec}, ncols={ncols}"
+                )
+        else:
+            # ncols không cung cấp thì chỉ normalize nếu có
+            if sc is not None:
+                sc = int(sc)
+            if ec is not None:
+                ec = int(ec)
+
         checked.append({
             "start_row": sr,
             "end_row": er,
             "header_row": hr,
+            "start_col": sc,
+            "end_col": ec,
             "label": s.get("label", "")
         })
+
     return checked
+

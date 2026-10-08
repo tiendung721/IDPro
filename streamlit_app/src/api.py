@@ -137,11 +137,72 @@ def admin_save_template(session_id: str, sheet_name: Optional[str] = None) -> Di
         body["sheet_name"] = sheet_name
     return _post("/admin/save_template", json=body)
 
+def save_template(session_id: str, sheet_name: Optional[str] = None) -> Dict[str, Any]:
+    body: Dict[str, Any] = {"session_id": session_id}
+    if sheet_name:
+        body["sheet_name"] = sheet_name
+    return _post("/save_template", json=body)
+
 
 def run_final_spec(session_id: str, reset: bool = False) -> Dict[str, Any]:
     return _post(
         "/final_spec",
         json={"session_id": session_id, "reset": bool(reset)},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+def report_plan(session_id: str, reset: bool = False) -> Dict[str, Any]:
+    return _post(
+        "/report_plan",
+        json={"session_id": session_id, "reset": bool(reset)},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+def generate_report(session_id: str, selected_report_ids, params=None, reset: bool = False) -> Dict[str, Any]:
+    return _post(
+        "/generate_report",
+        json={
+            "session_id": session_id,
+            "selected_report_ids": list(selected_report_ids or []),
+            "params": params or {},
+            "reset": bool(reset),
+        },
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+def post_confirm_router(session_id: str) -> Dict[str, Any]:
+    return _post(
+        "/post_confirm_router",
+        json={"session_id": session_id},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+
+def ba_detect(session_id: str) -> Dict[str, Any]:
+    return _post(
+        "/ba_detect",
+        json={"session_id": session_id},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+
+def ba_analysis(session_id: str) -> Dict[str, Any]:
+    return _post(
+        "/ba_analysis",
+        json={"session_id": session_id},
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
+    )
+
+
+def quotation_generate(session_id: str, customer_name: str = "", quotation_no: str = "", currency: str = "VND") -> Dict[str, Any]:
+    return _post(
+        "/quotation_generate",
+        json={
+            "session_id": session_id,
+            "customer_name": customer_name,
+            "quotation_no": quotation_no,
+            "currency": currency,
+        },
         timeout=httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0),
     )
 

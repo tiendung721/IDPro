@@ -37,6 +37,39 @@ class SessionStore:
                 )
                 """
             )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS report_plan_cache_exact (
+                cache_key TEXT PRIMARY KEY,
+                file_hash TEXT NOT NULL,
+                manifest_hash TEXT NOT NULL,
+                plan_json TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+                )
+                """
+            )
+
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS report_plan_cache_similar (
+                similarity_key TEXT NOT NULL,
+                manifest_hash TEXT NOT NULL,
+                plan_json TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (similarity_key, manifest_hash)
+                )
+                """
+            )
+
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS idx_plan_cache_exact_file_hash ON report_plan_cache_exact(file_hash)"
+            )
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS idx_plan_cache_similar_similarity ON report_plan_cache_similar(similarity_key)"
+            )
+
             con.commit()
         finally:
             con.close()
@@ -138,3 +171,67 @@ class SessionStore:
             con.commit()
         finally:
             con.close()
+
+    def get_report_plan_exact(self, cache_key: str) -> Optional[dict]:
+        con = sqlite3.connect(self.db_path)
+        try:
+            cur = con.execute(
+                "SELECT plan_json FROM report_plan_cache_exact WHERE cache_key=?",
+                (cache_key,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return json.loads(row[0])
+        finally:
+            con.close()
+
+    def put_report_plan_exact(self, cache_key: str, file_hash: str, manifest_hash: str, plan: dict) -> None:
+        now = int(time.time())
+        con = sqlite3.connect(self.db_path)
+        try:
+            con.execute(
+                """
+                REPLACE INTO report_plan_cache_exact
+                (cache_key, file_hash, manifest_hash, plan_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (cache_key, file_hash, manifest_hash, json.dumps(plan, ensure_ascii=False), now, now),
+            )
+            con.commit()
+        finally:
+            con.close()
+
+    def get_report_plan_similar(self, similarity_key: str, manifest_hash: str) -> Optional[dict]:
+        con = sqlite3.connect(self.db_path)
+        try:
+            cur = con.execute(
+                """
+                SELECT plan_json
+                FROM report_plan_cache_similar
+                WHERE similarity_key=? AND manifest_hash=?
+                """,
+                (similarity_key, manifest_hash),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return json.loads(row[0])
+        finally:
+            con.close()
+
+    def put_report_plan_similar(self, similarity_key: str, manifest_hash: str, plan: dict) -> None:
+        now = int(time.time())
+        con = sqlite3.connect(self.db_path)
+        try:
+            con.execute(
+                """
+                REPLACE INTO report_plan_cache_similar
+                (similarity_key, manifest_hash, plan_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (similarity_key, manifest_hash, json.dumps(plan, ensure_ascii=False), now, now),
+            )
+            con.commit()
+        finally:
+            con.close()   

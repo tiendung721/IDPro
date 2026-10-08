@@ -36,6 +36,8 @@ class SectionIn(BaseModel):
     start_row: int
     end_row: int
     label: Optional[str] = None
+    start_col: Optional[int] = None
+    end_col: Optional[int] = None
 
 
 class ConfirmRequest(BaseModel):
@@ -77,7 +79,6 @@ def _read_df(file_path: str, sheet_name: Optional[str] = None) -> Tuple[pd.DataF
 
     df = pd.read_excel(file_path, sheet_name=resolved, header=None)
 
-    # Nếu resolved là index, map về tên thật (đẹp hơn cho manifest)
     try:
         if isinstance(resolved, int):
             xls = pd.ExcelFile(file_path)
@@ -95,16 +96,16 @@ def _pick_sections_from_input_or_session(
     sections_in: Optional[List[Dict]],
     session_obj: Any,
 ) -> List[Dict]:
-    # 1) from payload
     if sections_in and len(sections_in) > 0:
         return sections_in
 
-    # 2) from session auto_sections
     auto_sections = getattr(session_obj, "auto_sections", None)
     if auto_sections and len(auto_sections) > 0:
-        return [s.model_dump() if hasattr(s, "model_dump") else getattr(s, "__dict__", {}) for s in auto_sections]
+        return [
+            s.model_dump() if hasattr(s, "model_dump") else getattr(s, "__dict__", {})
+            for s in auto_sections
+        ]
 
-    # 3) fallback to confirmed_sections (re-confirm)
     confirmed_sections = getattr(session_obj, "confirmed_sections", None)
     if confirmed_sections and len(confirmed_sections) > 0:
         out: List[Dict] = []
@@ -118,7 +119,41 @@ def _pick_sections_from_input_or_session(
         if out:
             return out
 
-    raise HTTPException(status_code=400, detail="Thiếu 'sections' và session cũng không có auto_sections.")
+    raise HTTPException(
+        status_code=400,
+        detail="Thiếu 'sections' và session cũng không có auto_sections.",
+    )
+
+
+def _reset_qa_state(data: Any) -> None:
+    data.qa_prev_response_id = None
+    data.qa_thread_turn_count = 0
+    data.qa_memory_summary = None
+    data.qa_recent_turns = []
+
+
+def _reset_input_derived_state(data: Any) -> None:
+    data.openai_file_id = None
+    data.manifest_hash = None
+    data.dataset_profile_compact = None
+
+
+def _reset_plan_state(data: Any) -> None:
+    data.report_plan = None
+    data.report_plan_compact = None
+    data.report_plan_cache_key = None
+    data.report_plan_similarity_key = None
+    data.report_plan_version = None
+    data.report_catalog_version = None
+
+
+def _reset_report_state(data: Any) -> None:
+    data.selected_reports = None
+    data.generated_dashboard_spec = None
+    data.generated_dashboard_summary = None
+    data.report_generation_context_key = None
+    data.report_generation_version = None
+    data.generate_prev_response_id = None
 
 
 # -------------------------
@@ -140,15 +175,12 @@ def confirm_sections(
     if not data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
-    # ownership check
     _assert_owner(data, actor)
     mem_user_id = _owner_key_from_actor(actor)
 
-    # prevent concurrent confirm
     if getattr(data, "confirming", False):
         raise HTTPException(status_code=409, detail="Confirm đang chạy. Vui lòng thử lại sau.")
 
-    # lock
     setattr(data, "confirming", True)
     store.upsert(data)
 
@@ -162,7 +194,7 @@ def confirm_sections(
         if df_raw.shape[0] == 0:
             raise HTTPException(status_code=400, detail="File/sheet rỗng")
 
-        # 2) Compute fingerprint (best-effort)  <-- MUST PASS df_raw (not tuple)
+        # 2) Compute fingerprint (best-effort)
         fp_used: Optional[str] = None
         try:
             fp_used = get_fingerprint_v2(df_raw, sheet_name=resolved_sheet)
@@ -172,7 +204,6 @@ def confirm_sections(
             except TypeError:
                 fp_used = get_fingerprint(df_raw)
 
-        # persist fingerprint early (best-effort)
         if fp_used:
             try:
                 data.fingerprint = fp_used
@@ -186,27 +217,33 @@ def confirm_sections(
         # 4) Validate sections to 0-based
         index_base = "zero"
         try:
-            sections_zb = validate_sections_zero_based(sections_raw, nrows=df_raw.shape[0])
+            sections_zb = validate_sections_zero_based(
+                sections_raw,
+                nrows=df_raw.shape[0],
+                ncols=df_raw.shape[1],
+            )
         except IndexErrorDetail as ie_primary:
-            # Try converting 1-based => 0-based
             try:
                 sections_try = to_zero_based(sections_raw, nrows=df_raw.shape[0])
-                sections_zb = validate_sections_zero_based(sections_try, nrows=df_raw.shape[0])
+                sections_zb = validate_sections_zero_based(
+                    sections_try,
+                    nrows=df_raw.shape[0],
+                    ncols=df_raw.shape[1],
+                )
                 index_base = "one->zero_auto"
             except Exception:
-                # keep compatible response shape with frontend
                 return {"ok": False, "code": ie_primary.code, "error": str(ie_primary)}
 
         # 5) Persist confirmed sections + confirmed flag
         data.confirmed_sections = [Section(**s) for s in sections_zb]
         data.confirmed = True
 
-        # 6) Write sections_manifest.json (NO normalized.xlsx anymore)
+        # 6) Write sections_manifest.json
         manifest = {
             "source_file": os.path.basename(data.file_path),
             "file_path": data.file_path,
             "sheet_name": resolved_sheet,
-            "index_base": "zero",  # sections_zb are 0-based
+            "index_base": "zero",
             "tables": [
                 {
                     "table_id": f"T{i+1}",
@@ -215,6 +252,8 @@ def confirm_sections(
                     "start_row_0based": s["start_row"],
                     "end_row_0based": s["end_row"],
                     "label": s.get("label"),
+                    "start_col_0based": s.get("start_col", 0),
+                    "end_col_0based": s.get("end_col", df_raw.shape[1] - 1),
                 }
                 for i, s in enumerate(sections_zb)
             ],
@@ -224,14 +263,19 @@ def confirm_sections(
         data.sections_manifest_path = manifest_path
         data.confirmed_sheet_name = resolved_sheet
 
-        # IMPORTANT: sections/data changed => invalidate CI state
-        data.openai_file_id = None
-        data.qa_prev_response_id = None
+        # 7) Data/sections changed => invalidate all downstream AI state
+        _reset_input_derived_state(data)
+        _reset_qa_state(data)
+
         data.final_prev_response_id = None
+        data.final_spec_prev_response_id = None
+
+        _reset_plan_state(data)
+        _reset_report_state(data)
 
         store.upsert(data)
 
-        # 7) Memory record (best-effort)
+        # 8) Memory record (best-effort)
         try:
             memory.add_record(
                 mem_user_id,
@@ -248,7 +292,7 @@ def confirm_sections(
         except Exception:
             pass
 
-        # 8) Return compatible response shape (add manifest_path)
+        # 9) Return compatible response shape
         return {
             "ok": True,
             "code": "CONFIRM_OK",
@@ -263,7 +307,6 @@ def confirm_sections(
         }
 
     finally:
-        # always unlock
         try:
             setattr(data, "confirming", False)
             store.upsert(data)

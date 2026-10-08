@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 import time
 import pandas as pd
 
-from common.auth import require_admin_actor, Actor
+from common.auth import require_admin_actor, get_actor, Actor
 from common.session_store import SessionStore
 
 from data_processing.rule_memory import save_rule_for_fingerprint, get_fingerprint, get_fingerprint_v2
@@ -68,6 +68,14 @@ def _build_overrides_from_sections(sections: List[Dict[str, Any]]) -> Dict[str, 
 
 def _admin_owner_key(admin: Actor) -> str:
     return f"admin:{admin['id']}"
+
+def _owner_key_from_actor(actor: Actor) -> str:
+    kind = actor.get("kind")
+    if kind == "admin" and actor.get("id"):
+        return f"admin:{actor['id']}"
+    if kind == "user" and actor.get("id"):
+        return f"user:{actor['id']}"
+    raise HTTPException(status_code=401, detail="Actor không hợp lệ")
 
 
 @router.post("/admin/save_template")
@@ -137,6 +145,82 @@ def save_template(payload: SaveTemplateReq = Body(...), admin: Actor = Depends(r
     save_rule_for_fingerprint(fp, rule_doc, user_id="default_user")
 
     # update session meta (optional)
+    data.is_known = True
+    data.matched_fingerprint = fp
+    data.matched_template_owner = "default_user"
+    store.upsert(data)
+
+    return {
+        "ok": True,
+        "code": "TEMPLATE_SAVED",
+        "data": {
+            "fingerprint": fp,
+            "template_owner": "default_user",
+            "template_name": rule_doc["template_name"],
+            "rule_version": rule_doc["version"],
+        },
+    }
+
+@router.post("/save_template")
+def save_template_for_actor(payload: SaveTemplateReq = Body(...), actor: Actor = Depends(get_actor)):
+    """
+    Cho phép mọi tài khoản đã đăng nhập lưu template
+    nhưng chỉ trên session của chính mình.
+    """
+    data = store.get(payload.session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session không tồn tại")
+
+    expected_owner = _owner_key_from_actor(actor)
+    if getattr(data, "owner_key", None) != expected_owner:
+        raise HTTPException(status_code=403, detail="Bạn không phải owner của session này")
+
+    if not getattr(data, "confirmed", False):
+        raise HTTPException(status_code=400, detail="Session chưa confirm_sections")
+
+    df = _read_df(data.file_path, sheet_name=payload.sheet_name)
+    if df.shape[0] == 0:
+        raise HTTPException(status_code=400, detail="File/sheet rỗng")
+
+    confirmed_sections = getattr(data, "confirmed_sections", None) or []
+    if not confirmed_sections:
+        raise HTTPException(status_code=400, detail="Không có confirmed_sections trong session")
+
+    secs = [
+        s.model_dump() if hasattr(s, "model_dump") else dict(getattr(s, "__dict__", {}))
+        for s in confirmed_sections
+    ]
+
+    try:
+        secs = validate_sections_zero_based(secs, nrows=df.shape[0])
+    except IndexErrorDetail:
+        secs = to_zero_based(secs, nrows=df.shape[0])
+        secs = validate_sections_zero_based(secs, nrows=df.shape[0])
+
+    fp: Optional[str] = None
+    try:
+        fp = get_fingerprint_v2(df, sheet_name=payload.sheet_name)
+    except Exception:
+        try:
+            fp = get_fingerprint(df, sheet_name=payload.sheet_name)
+        except TypeError:
+            fp = get_fingerprint(df)
+
+    if not fp:
+        raise HTTPException(status_code=500, detail="Không tạo được fingerprint")
+
+    overrides = _build_overrides_from_sections(secs)
+
+    rule_doc = {
+        "version": int(time.time()),
+        "updated_at": int(time.time()),
+        "template_name": payload.template_name or "Template",
+        "overrides": overrides,
+    }
+
+    # Tạm thời vẫn lưu global để không phải sửa luồng extractor hiện tại
+    save_rule_for_fingerprint(fp, rule_doc, user_id="default_user")
+
     data.is_known = True
     data.matched_fingerprint = fp
     data.matched_template_owner = "default_user"

@@ -5,7 +5,8 @@ from src import api
 
 st.set_page_config(page_title="AI Agent UI", layout="wide")
 init_state()
-st.title("AI Agent – Excel analysis with LLM")
+
+st.title("IDPro – Excel Agent")
 st.caption("Chọn đăng nhập User hoặc Admin ở sidebar.")
 
 st.markdown("""
@@ -81,7 +82,7 @@ def goto_user():
     st.session_state["user_token"] = token
     api.set_token(token)
 
-    _switch_page("pages/2_User_UI.py")
+    _switch_page("pages/1_AI_Agent.py")
 
 
 
@@ -115,7 +116,7 @@ with st.sidebar:
                         st.session_state["user_name"] = username
                         st.session_state["user_role"] = "USER"
                         api.set_token(token)
-                        st.switch_page("pages/2_User_UI.py")
+                        st.switch_page("pages/1_AI_Agent.py")
 
     with tab_admin:
         with st.form("login_admin", clear_on_submit=False):

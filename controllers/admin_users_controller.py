@@ -5,6 +5,7 @@ import uuid
 
 from data_processing.user_store import UserStore
 from common.auth import require_admin 
+import common.security as security
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
 
@@ -49,8 +50,10 @@ def create_user(payload: CreateUserReq, _=Depends(require_admin)):
         if store.get_by_email(email):
             raise HTTPException(status_code=409, detail="email_exists")
 
-        import common.security as security
-        password_hash = security.hash_password(password)
+        try:
+            password_hash = security.hash_password(password)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         store.create_admin(
             user_id=user_id,

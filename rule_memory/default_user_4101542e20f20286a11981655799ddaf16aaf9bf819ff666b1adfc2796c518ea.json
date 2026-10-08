@@ -1,0 +1,22 @@
+{
+  "version": 1775720322,
+  "updated_at": 1775720322,
+  "template_name": "Template",
+  "overrides": {
+    "sections": [
+      {
+        "selector": {
+          "by": "index",
+          "value": "S1"
+        },
+        "fields": {
+          "start_row": 1,
+          "end_row": 30,
+          "header_row": 0,
+          "label": "Section 1"
+        }
+      }
+    ],
+    "header_row": 0
+  }
+}

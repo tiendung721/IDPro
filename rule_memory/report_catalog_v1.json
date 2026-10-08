@@ -1,0 +1,295 @@
+{
+  "version": "3.0",
+  "reports": [
+    {
+      "report_id": "exec_overview",
+      "framework_title": "Executive Overview",
+      "description": "Báo cáo tổng quan điều hành, tập trung vào KPI chính, quy mô, xu hướng, top/bottom, điểm nổi bật, rủi ro và khuyến nghị.",
+      "analysis_intent": "Tạo bức tranh tổng thể ở mức điều hành cho dữ liệu đang phân tích.",
+      "tab_id": "performance",
+      "tab_title": "Overview",
+      "layout_shell": "overview_premium",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề tổng quan gắn với domain dữ liệu thực tế, ví dụ: Tổng quan doanh thu bán hàng, Tổng quan nhập hàng xăng dầu, Bức tranh chung về dữ liệu vận hành.",
+      "template": {
+        "min_kpis": 6,
+        "min_charts": 6,
+        "max_widgets": 16,
+        "required_sections": [
+          "kpis",
+          "trend_or_overview",
+          "breakdown",
+          "top_table",
+          "insights",
+          "data_notes",
+          "last_updated",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "line",
+          "area",
+          "stacked_area",
+          "combo_bar_line",
+          "donut",
+          "bar",
+          "stacked_bar",
+          "table",
+          "insight_block",
+          "last_updated_card",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "breakdown_by_category",
+      "framework_title": "Breakdown by Category",
+      "description": "Báo cáo phân rã theo chiều phân loại chính trong dữ liệu, tập trung vào cơ cấu, đóng góp, top N, chênh lệch giữa các nhóm.",
+      "analysis_intent": "Phân tích dữ liệu theo dimension/category quan trọng nhất như mặt hàng, sản phẩm, khu vực, khách hàng, hãng hoặc nhóm.",
+      "tab_id": "segment",
+      "tab_title": "Breakdown",
+      "layout_shell": "comparison_premium",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo chiều phân tích chính, ví dụ: Phân tích theo mặt hàng, Phân rã doanh thu theo khu vực, Cơ cấu giá trị theo nhóm sản phẩm.",
+      "template": {
+        "min_kpis": 5,
+        "min_charts": 5,
+        "max_widgets": 14,
+        "required_sections": [
+          "kpis",
+          "breakdown",
+          "top_table",
+          "insights",
+          "data_notes",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "donut",
+          "bar",
+          "stacked_bar",
+          "treemap",
+          "sunburst",
+          "table",
+          "insight_block",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "data_quality",
+      "framework_title": "Data Quality",
+      "description": "Báo cáo chất lượng dữ liệu, tập trung vào missing values, giá trị không hợp lệ, outliers, anomalies, assumptions và khuyến nghị làm sạch.",
+      "analysis_intent": "Đánh giá độ đầy đủ, độ tin cậy và rủi ro chất lượng dữ liệu của dataset đang phân tích.",
+      "tab_id": "risk",
+      "tab_title": "Data Quality",
+      "layout_shell": "quality_review",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo kiểu chất lượng dữ liệu gắn với domain, ví dụ: Đánh giá chất lượng dữ liệu bán hàng, Rủi ro và chất lượng dữ liệu nhập kho, Kiểm tra tính đầy đủ của dữ liệu vận hành.",
+      "template": {
+        "min_kpis": 4,
+        "min_charts": 4,
+        "max_widgets": 12,
+        "required_sections": [
+          "quality_kpis",
+          "anomalies",
+          "missingness",
+          "recommendations",
+          "data_notes",
+          "last_updated",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "table",
+          "bar",
+          "heatmap",
+          "histogram",
+          "box",
+          "insight_block",
+          "last_updated_card",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "trend_growth",
+      "framework_title": "Trend & Growth Analysis",
+      "description": "Báo cáo phân tích xu hướng và tăng trưởng theo thời gian, tập trung vào so sánh cùng kỳ (MOM, YOY), tốc độ tăng trưởng và dự báo.",
+      "analysis_intent": "Hiểu sự biến động của dữ liệu qua các mốc thời gian và đánh giá hiệu quả tăng trưởng.",
+      "tab_id": "trend",
+      "tab_title": "Trend & Growth",
+      "layout_shell": "trend_story",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề nhấn mạnh thời gian và tăng trưởng, ví dụ: Biến động doanh thu theo tháng, Phân tích tăng trưởng năm 2023-2024, Xu hướng nhập hàng quý 4.",
+      "template": {
+        "min_kpis": 5,
+        "min_charts": 6,
+        "max_widgets": 14,
+        "required_sections": [
+          "kpis",
+          "trend_overview",
+          "growth_comparison",
+          "forecast_or_projection",
+          "insights",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "line",
+          "area",
+          "stacked_area",
+          "combo_bar_line",
+          "waterfall",
+          "bar",
+          "insight_block",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "performance_ranking",
+      "framework_title": "Performance Ranking",
+      "description": "Báo cáo xếp hạng hiệu năng, tập trung vào các đối tượng dẫn đầu (Top N), nhóm yếu kém (Bottom N) và phân tích đóng góp Pareto (80/20).",
+      "analysis_intent": "Xác định các thực thể quan trọng nhất hoặc các điểm nghẽn trong tập dữ liệu.",
+      "tab_id": "ranking",
+      "tab_title": "Rankings",
+      "layout_shell": "ranking_board",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo hướng xếp hạng, ví dụ: Xếp hạng nhân viên xuất sắc, Top 10 sản phẩm bán chạy, Phân tích Pareto khách hàng đóng góp doanh thu.",
+      "template": {
+        "min_kpis": 4,
+        "min_charts": 5,
+        "max_widgets": 12,
+        "required_sections": [
+          "rank_kpis",
+          "top_bottom_lists",
+          "pareto_analysis",
+          "contribution_share",
+          "insights",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "bar",
+          "combo_bar_line",
+          "funnel",
+          "treemap",
+          "donut",
+          "table",
+          "insight_block",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "operational_status",
+      "framework_title": "Operational Status",
+      "description": "Báo cáo theo dõi trạng thái vận hành, tập trung vào tiến độ công việc, quy trình, tỷ lệ hoàn thành và phân tích tuổi thọ (aging).",
+      "analysis_intent": "Quản lý luồng công việc, xác định các mục đang tồn đọng hoặc chưa hoàn thành.",
+      "tab_id": "ops",
+      "tab_title": "Operational",
+      "layout_shell": "ops_command",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo trạng thái vận chuyển/xử lý, ví dụ: Theo dõi tiến độ đơn hàng, Trạng thái xử lý hồ sơ khách hàng, Báo cáo tồn kho và tuổi hàng.",
+      "template": {
+        "min_kpis": 6,
+        "min_charts": 4,
+        "max_widgets": 15,
+        "required_sections": [
+          "status_kpis",
+          "workflow_pipeline",
+          "aging_analysis",
+          "completion_rate",
+          "alert_table",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "donut",
+          "stacked_bar",
+          "bar",
+          "gantt_hint_table",
+          "gauge",
+          "funnel",
+          "insight_block",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "correlation_distribution",
+      "framework_title": "Correlation & Distribution",
+      "description": "Báo cáo phân tích tương quan và phân bổ, tập trung vào mối quan hệ giữa các biến số và cách dữ liệu trải rộng.",
+      "analysis_intent": "Tìm kiếm quy luật ẩn, sự phụ thuộc giữa các yếu tố và các nhóm dữ liệu tập trung.",
+      "tab_id": "analysis",
+      "tab_title": "Deep Analysis",
+      "layout_shell": "analysis_lab",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo hướng phân tích sâu, ví dụ: Tương quan giữa giá và lượng bán, Phân bổ mức lương theo thâm niên, Mối liên hệ giữa chi phí marketing và doanh số.",
+      "template": {
+        "min_kpis": 4,
+        "min_charts": 5,
+        "max_widgets": 12,
+        "required_sections": [
+          "summary_stats",
+          "scatter_correlation",
+          "distribution_histogram",
+          "outlier_detection",
+          "insights",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "scatter",
+          "bubble",
+          "histogram",
+          "box",
+          "violin",
+          "radar",
+          "bar",
+          "boxplot_hint_table",
+          "insight_block",
+          "filter_panel"
+        ],
+        "layout_hint": "powerbi_right_filters"
+      }
+    },
+    {
+      "report_id": "detailed_transactions",
+      "framework_title": "Detailed Transactions",
+      "description": "Báo cáo chi tiết giao dịch, tập trung vào việc tra cứu, lọc và xem dữ liệu ở mức dòng chi tiết nhất.",
+      "analysis_intent": "Cung cấp khả năng kiểm soát dữ liệu gốc cho người dùng sau khi đã xem các báo cáo tổng quát.",
+      "tab_id": "detail",
+      "tab_title": "Details",
+      "layout_shell": "detail_explorer",
+      "display_title_mode": "dynamic",
+      "naming_guidance": "Đặt tiêu đề theo bảng dữ liệu gốc, ví dụ: Danh sách chi tiết hóa đơn, Nhật ký giao dịch hàng ngày, Bảng kê chi tiết nhân viên.",
+      "template": {
+        "min_kpis": 3,
+        "min_charts": 2,
+        "max_widgets": 10,
+        "required_sections": [
+          "total_counts",
+          "detailed_table",
+          "export_notes",
+          "filters"
+        ],
+        "preferred_widgets": [
+          "kpi_row",
+          "bar",
+          "donut",
+          "table",
+          "filter_panel"
+        ],
+        "layout_hint": "full_width_table"
+      }
+    }
+  ]
+}
